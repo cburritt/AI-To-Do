@@ -1,0 +1,16 @@
+# .NET
+bin/
+obj/
+*.user
+.vs/
+
+# Node / frontend
+node_modules/
+src/Api/wwwroot/
+
+# Local data (the app stores it in %LOCALAPPDATA%\AiTodo, but just in case)
+*.db
+*.db-shm
+*.db-wal
+.env
+.claude/
