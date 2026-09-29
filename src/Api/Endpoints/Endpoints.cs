@@ -15,6 +15,7 @@ public static class Endpoints
     public static void MapApi(this WebApplication app)
     {
         var api = app.MapGroup("/api");
+        api.MapGet("/ping", () => Results.NoContent()); // keep-alive from the open app window
         MapTodos(api.MapGroup("/todos"));
         MapInternships(api.MapGroup("/internships"));
         MapCanvas(api.MapGroup("/canvas"));

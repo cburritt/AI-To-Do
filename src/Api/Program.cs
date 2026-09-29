@@ -28,7 +28,28 @@ builder.Services.AddScoped<PlannerService>();
 // Only listen on this machine.
 builder.WebHost.UseUrls(builder.Configuration["urls"] ?? "http://localhost:5080");
 
+// Set by the desktop launcher so the server doesn't linger after the window is closed.
+var idleMinutes = builder.Configuration.GetValue<int?>("ExitWhenIdleMinutes");
+if (idleMinutes is > 0)
+{
+    builder.Services.AddSingleton(sp => new IdleShutdownService(
+        sp.GetRequiredService<IHostApplicationLifetime>(),
+        sp.GetRequiredService<ILogger<IdleShutdownService>>(),
+        TimeSpan.FromMinutes(idleMinutes.Value)));
+    builder.Services.AddHostedService(sp => sp.GetRequiredService<IdleShutdownService>());
+}
+
 var app = builder.Build();
+
+if (app.Services.GetService<IdleShutdownService>() is { } idle)
+{
+    app.Use(async (ctx, next) =>
+    {
+        idle.RequestStarted();
+        try { await next(); }
+        finally { idle.RequestEnded(); }
+    });
+}
 
 using (var scope = app.Services.CreateScope())
 {

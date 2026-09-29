@@ -21,6 +21,12 @@ function currentPage(): PageId {
 export default function App() {
   const [page, setPage] = useState<PageId>(currentPage)
 
+  // Keep-alive: when launched from the desktop icon, the server stops a few minutes after the window closes.
+  useEffect(() => {
+    const id = setInterval(() => { fetch('/api/ping').catch(() => {}) }, 60_000)
+    return () => clearInterval(id)
+  }, [])
+
   useEffect(() => {
     const onHash = () => setPage(currentPage())
     window.addEventListener('hashchange', onHash)
