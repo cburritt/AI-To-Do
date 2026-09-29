@@ -15,7 +15,7 @@ builder.Services.AddDataProtection()
     .SetApplicationName("AiTodo")
     .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(dataDir, "keys")));
 builder.Services.AddScoped<SettingsService>();
-builder.Services.AddHttpClient<CanvasFeedService>(c => c.Timeout = TimeSpan.FromSeconds(20));
+builder.Services.AddHttpClient<CanvasFeedService>(c => c.Timeout = TimeSpan.FromSeconds(90));
 builder.Services.AddScoped<PlannerService>();
 
 // Only listen on this machine.

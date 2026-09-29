@@ -33,10 +33,24 @@ public partial class CanvasFeedService(AppDb db, SettingsService settings, HttpC
         {
             ics = await http.GetStringAsync(url, ct);
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        catch (HttpRequestException ex)
         {
             log.LogWarning(ex, "Canvas feed fetch failed");
-            return new(true, "Couldn't download the Canvas feed. Showing the last synced items.", await LastSyncAsync());
+            var reason = ex.StatusCode switch
+            {
+                System.Net.HttpStatusCode.NotFound =>
+                    "Canvas says the feed link doesn't exist (404). Copy the Calendar Feed link again and paste the whole thing.",
+                System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.Forbidden =>
+                    $"Canvas refused the feed link ({(int)ex.StatusCode}). Copy the Calendar Feed link again.",
+                { } code => $"Canvas returned an error ({(int)code}) for the feed link.",
+                null => $"Couldn't reach Canvas: {ex.Message}",
+            };
+            return new(true, reason, await LastSyncAsync());
+        }
+        catch (TaskCanceledException ex) when (!ct.IsCancellationRequested)
+        {
+            log.LogWarning(ex, "Canvas feed fetch timed out");
+            return new(true, "Canvas took too long to send the feed. Try again in a minute.", await LastSyncAsync());
         }
 
         Calendar? cal;
