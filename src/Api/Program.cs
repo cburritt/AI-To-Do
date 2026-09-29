@@ -15,7 +15,12 @@ builder.Services.AddDataProtection()
     .SetApplicationName("AiTodo")
     .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(dataDir, "keys")));
 builder.Services.AddScoped<SettingsService>();
-builder.Services.AddHttpClient<CanvasFeedService>(c => c.Timeout = TimeSpan.FromSeconds(90));
+builder.Services.AddHttpClient<CanvasFeedService>(c =>
+{
+    c.Timeout = TimeSpan.FromSeconds(90);
+    // Canvas rejects requests with no User-Agent (403), and .NET doesn't send one by default.
+    c.DefaultRequestHeaders.UserAgent.ParseAdd("AI-To-Do/1.0 (personal planner)");
+});
 builder.Services.AddScoped<PlannerService>();
 
 // Only listen on this machine.
