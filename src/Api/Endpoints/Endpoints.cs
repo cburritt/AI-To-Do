@@ -7,7 +7,7 @@ namespace AiTodo.Api.Endpoints;
 
 public record TodoInput(string Title, DateOnly? Due, string? Priority, string? Notes, bool? Done);
 public record InternshipInput(string Company, string Role, string? Status, DateOnly? Deadline, DateOnly? AppliedOn, string? Link, string? Notes);
-public record SettingsInput(string? CanvasFeedUrl, string? AnthropicApiKey);
+public record SettingsInput(string? CanvasFeedUrl, string? AnthropicApiKey, string? PlannerMode);
 public record DoneInput(bool Done);
 
 public static class Endpoints
@@ -183,11 +183,20 @@ public static class Endpoints
                 await s.SetAsync(SettingsService.CanvasFeedUrl, url);
             }
             if (input.AnthropicApiKey is not null) await s.SetAsync(SettingsService.AnthropicApiKey, input.AnthropicApiKey);
+            if (input.PlannerMode is not null)
+            {
+                if (input.PlannerMode is not (SettingsService.ModeApi or SettingsService.ModeClaudeCode))
+                    return Results.BadRequest("Unknown planner mode.");
+                await s.SetAsync(SettingsService.PlannerMode, input.PlannerMode);
+            }
             return Results.Ok(await Status(s));
         });
 
+        g.MapGet("/claude-code", async (ClaudeCodeRunner cc, CancellationToken ct) => await cc.GetAuthStatusAsync(ct));
+
         static async Task<object> Status(SettingsService s) => new
         {
+            plannerMode = await s.GetPlannerModeAsync(),
             hasCanvasFeed = await s.GetAsync(SettingsService.CanvasFeedUrl) is not null,
             hasApiKey = await s.GetApiKeyAsync() is not null,
         };

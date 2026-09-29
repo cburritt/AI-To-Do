@@ -181,3 +181,12 @@ main { min-width: 0; }
 .section-head h2 { margin: 0; }
 .small { font-size: 12px; }
 .small .link { margin-left: 8px; }
+
+/* settings */
+.card + .card { margin-top: 16px; }
+.card-title { margin: 0; font-size: 15px; }
+.stack label.choice { flex-direction: row; align-items: flex-start; gap: 10px; font-weight: 400; cursor: pointer; }
+.choice input { margin-top: 4px; }
+.choice small { display: block; margin-top: 2px; }
+.banner.inset { margin: 8px 0 0; font-size: 13px; }
+code { font-family: Consolas, ui-monospace, monospace; background: var(--line); padding: 1px 5px; border-radius: 4px; font-size: 12px; }

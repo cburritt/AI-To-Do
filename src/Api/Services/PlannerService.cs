@@ -28,8 +28,11 @@ public record PlanContent(
 
 public class PlannerException(string message) : Exception(message);
 
-/// <summary>Builds today's plan with Claude from Canvas items, to-dos, and internship applications.</summary>
-public class PlannerService(AppDb db, SettingsService settings, CanvasFeedService canvas)
+/// <summary>
+/// Builds today's plan with Claude from Canvas items, to-dos, and internship applications, either through
+/// the local Claude Code CLI (the user's subscription, default) or the Claude API with an API key.
+/// </summary>
+public class PlannerService(AppDb db, SettingsService settings, CanvasFeedService canvas, ClaudeCodeRunner claudeCode)
 {
     private const string Model = "claude-opus-5";
 
@@ -52,8 +55,11 @@ public class PlannerService(AppDb db, SettingsService settings, CanvasFeedServic
 
     public async Task<(PlanContent Plan, string? Note)> GenerateAsync(CancellationToken ct = default)
     {
-        var apiKey = await settings.GetApiKeyAsync()
-            ?? throw new PlannerException("Add your Claude API key in Settings to generate a plan.");
+        var mode = await settings.GetPlannerModeAsync();
+        string? apiKey = null;
+        if (mode == SettingsService.ModeApi)
+            apiKey = await settings.GetApiKeyAsync()
+                ?? throw new PlannerException("Add your Claude API key in Settings, or switch to your Claude subscription.");
 
         var sync = await canvas.SyncAsync(ct);
         string? note = sync.Connected ? sync.Error : "Canvas isn't connected, so this plan only covers to-dos and internships.";
@@ -78,7 +84,26 @@ public class PlannerService(AppDb db, SettingsService settings, CanvasFeedServic
                 applied_on = i.AppliedOn, i.Notes, last_updated = DateOnly.FromDateTime(i.UpdatedAt),
             }),
         };
+        var prompt = "Here is my current data. Build my plan for today.\n\n" + JsonSerializer.Serialize(input, Json);
 
+        var plan = mode == SettingsService.ModeApi
+            ? await PlanWithApiAsync(apiKey!, prompt, ct)
+            : (await claudeCode.RunStructuredAsync(SystemPrompt, prompt, JsonSerializer.Serialize(PlanSchema), ct))
+                .Deserialize<PlanContent>();
+        if (plan is null || plan.Focus is null) throw new PlannerException("Claude returned an empty plan. Try again.");
+
+        var today = DateOnly.FromDateTime(DateTime.Now);
+        var row = await db.Plans.FindAsync([today], ct);
+        var planJson = JsonSerializer.Serialize(plan);
+        if (row is null) db.Plans.Add(new DailyPlan { Date = today, PlanJson = planJson, Note = note });
+        else { row.PlanJson = planJson; row.Note = note; row.GeneratedAt = DateTime.UtcNow; }
+        await db.SaveChangesAsync(ct);
+
+        return (plan, note);
+    }
+
+    private static async Task<PlanContent?> PlanWithApiAsync(string apiKey, string prompt, CancellationToken ct)
+    {
         var client = new AnthropicClient { ApiKey = apiKey };
         BetaMessage response;
         try
@@ -95,14 +120,7 @@ public class PlannerService(AppDb db, SettingsService settings, CanvasFeedServic
                     Effort = Effort.Medium,
                     Format = new BetaJsonOutputFormat { Schema = PlanSchema },
                 },
-                Messages =
-                [
-                    new()
-                    {
-                        Role = Role.User,
-                        Content = "Here is my current data. Build my plan for today.\n\n" + JsonSerializer.Serialize(input, Json),
-                    },
-                ],
+                Messages = [new() { Role = Role.User, Content = prompt }],
             }, ct);
         }
         catch (AnthropicUnauthorizedException) { throw new PlannerException("Claude rejected the API key. Check it in Settings."); }
@@ -114,17 +132,7 @@ public class PlannerService(AppDb db, SettingsService settings, CanvasFeedServic
         if (response.StopReason == "max_tokens") throw new PlannerException("The plan was cut off. Try again.");
 
         var text = string.Concat(response.Content.Select(b => b.Value).OfType<BetaTextBlock>().Select(b => b.Text));
-        var plan = JsonSerializer.Deserialize<PlanContent>(text)
-            ?? throw new PlannerException("Claude returned an empty plan. Try again.");
-
-        var today = DateOnly.FromDateTime(DateTime.Now);
-        var row = await db.Plans.FindAsync([today], ct);
-        var planJson = JsonSerializer.Serialize(plan);
-        if (row is null) db.Plans.Add(new DailyPlan { Date = today, PlanJson = planJson, Note = note });
-        else { row.PlanJson = planJson; row.Note = note; row.GeneratedAt = DateTime.UtcNow; }
-        await db.SaveChangesAsync(ct);
-
-        return (plan, note);
+        return JsonSerializer.Deserialize<PlanContent>(text);
     }
 
     private static readonly Dictionary<string, JsonElement> PlanSchema = BuildSchema();

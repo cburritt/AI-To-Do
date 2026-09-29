@@ -11,6 +11,10 @@ public class SettingsService(AppDb db, IDataProtectionProvider dp)
 {
     public const string CanvasFeedUrl = "CanvasFeedUrl";
     public const string AnthropicApiKey = "AnthropicApiKey";
+    public const string PlannerMode = "PlannerMode";
+
+    public const string ModeClaudeCode = "claude-code"; // Claude subscription via the Claude Code CLI
+    public const string ModeApi = "api";                // Claude API with an API key
 
     private readonly IDataProtector _protector = dp.CreateProtector("AiTodo.Settings.v1");
 
@@ -37,6 +41,9 @@ public class SettingsService(AppDb db, IDataProtectionProvider dp)
         }
         await db.SaveChangesAsync();
     }
+
+    public async Task<string> GetPlannerModeAsync() =>
+        await GetAsync(PlannerMode) == ModeApi ? ModeApi : ModeClaudeCode;
 
     /// <summary>The API key from settings, falling back to the ANTHROPIC_API_KEY environment variable.</summary>
     public async Task<string?> GetApiKeyAsync() =>

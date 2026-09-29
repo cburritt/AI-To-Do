@@ -42,7 +42,7 @@ export default function App() {
         <div hidden={page !== 'today'}><TodayPage active={page === 'today'} /></div>
         <div hidden={page !== 'todos'}><TodosPage active={page === 'todos'} /></div>
         <div hidden={page !== 'internships'}><InternshipsPage active={page === 'internships'} /></div>
-        <div hidden={page !== 'settings'}><SettingsPage /></div>
+        <div hidden={page !== 'settings'}><SettingsPage active={page === 'settings'} /></div>
       </main>
     </div>
   )

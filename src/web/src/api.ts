@@ -56,9 +56,24 @@ export interface PlanResponse {
   generatedAt: string
 }
 
+export type PlannerMode = 'claude-code' | 'api'
+
 export interface SettingsStatus {
+  plannerMode: PlannerMode
   hasCanvasFeed: boolean
   hasApiKey: boolean
+}
+
+export interface ClaudeCodeStatus {
+  installed: boolean
+  loggedIn: boolean
+  detail: string | null
+}
+
+export interface SettingsInput {
+  canvasFeedUrl?: string
+  anthropicApiKey?: string
+  plannerMode?: PlannerMode
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -109,6 +124,7 @@ export const api = {
   },
   settings: {
     get: () => request<SettingsStatus>('/settings'),
-    save: (s: { canvasFeedUrl?: string; anthropicApiKey?: string }) => request<SettingsStatus>('/settings', json('PUT', s)),
+    save: (s: SettingsInput) => request<SettingsStatus>('/settings', json('PUT', s)),
+    claudeCode: () => request<ClaudeCodeStatus>('/settings/claude-code'),
   },
 }
