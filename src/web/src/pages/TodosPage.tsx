@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { api, type Priority, type Todo } from '../api'
 import { formatDateOnly, isPastDateOnly } from '../format'
 
-export default function TodosPage() {
+export default function TodosPage({ active }: { active: boolean }) {
   const [todos, setTodos] = useState<Todo[]>([])
   const [title, setTitle] = useState('')
   const [due, setDue] = useState('')
@@ -10,7 +10,8 @@ export default function TodosPage() {
   const [error, setError] = useState<string | null>(null)
 
   const reload = () => api.todos.list().then(setTodos).catch((e) => setError(e.message))
-  useEffect(() => { reload() }, [])
+  // Refresh when shown: the Today page can check off to-dos too.
+  useEffect(() => { if (active) reload() }, [active])
 
   async function add(e: FormEvent) {
     e.preventDefault()

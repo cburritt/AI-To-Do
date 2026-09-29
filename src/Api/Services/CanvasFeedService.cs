@@ -114,7 +114,9 @@ public partial class CanvasFeedService(AppDb db, SettingsService settings, HttpC
             .ToListAsync(ct);
     }
 
-    private async Task<DateTime?> LastSyncAsync() =>
+    public async Task<bool> IsConnectedAsync() => await settings.GetAsync(SettingsService.CanvasFeedUrl) is not null;
+
+    public async Task<DateTime?> LastSyncAsync() =>
         DateTime.TryParse(await settings.GetAsync("CanvasLastSync"), null,
             System.Globalization.DateTimeStyles.RoundtripKind, out var d) ? d : null;
 }

@@ -22,9 +22,13 @@ function saveChecked(s: Set<string>) {
   } catch { /* storage unavailable */ }
 }
 
-export default function TodayPage() {
+// Canvas is re-downloaded in the background when the saved copy is older than this.
+const CANVAS_STALE_MS = 15 * 60_000
+
+export default function TodayPage({ active }: { active: boolean }) {
   const [plan, setPlan] = useState<PlanResponse | null>(null)
   const [canvas, setCanvas] = useState<CanvasResponse | null>(null)
+  const [syncing, setSyncing] = useState(false)
   const [todos, setTodos] = useState<Todo[]>([])
   const [checked, setChecked] = useState<Set<string>>(loadChecked)
   const [generating, setGenerating] = useState(false)
@@ -32,17 +36,39 @@ export default function TodayPage() {
 
   const loadCanvas = useCallback(() => api.canvas.items().then(setCanvas).catch((e) => setError(e.message)), [])
 
+  const syncCanvas = useCallback(async () => {
+    setSyncing(true)
+    try {
+      setCanvas(await api.canvas.sync())
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setSyncing(false)
+    }
+  }, [])
+
   useEffect(() => {
     api.plan.today().then((p) => setPlan(p ?? null)).catch((e) => setError(e.message))
+  }, [])
+
+  // Each time the tab is shown: show saved Canvas items right away, then refresh from Canvas if stale.
+  useEffect(() => {
+    if (!active) return
     api.todos.list().then(setTodos).catch(() => {})
-    loadCanvas()
-  }, [loadCanvas])
+    api.canvas.items()
+      .then((c) => {
+        setCanvas(c)
+        const age = c.lastSyncUtc ? Date.now() - new Date(c.lastSyncUtc).getTime() : Infinity
+        if (c.connected && age > CANVAS_STALE_MS) syncCanvas()
+      })
+      .catch((e) => setError(e.message))
+  }, [active, syncCanvas])
 
   async function generate() {
     setGenerating(true)
     setError(null)
     try {
-      setPlan(await api.plan.generate())
+      setPlan(await api.plan.generate()) // the server syncs Canvas as part of planning
       loadCanvas()
     } catch (e) {
       setError((e as Error).message)
@@ -158,12 +184,23 @@ export default function TodayPage() {
         </div>
       )}
 
-      <h2>Canvas: next 2 weeks</h2>
+      <div className="section-head">
+        <h2>Canvas: next 2 weeks</h2>
+        {canvas?.connected && (
+          <span className="muted small">
+            {syncing ? 'Syncing with Canvas…'
+              : canvas.lastSyncUtc && `Updated ${new Date(canvas.lastSyncUtc).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`}
+            {!syncing && <button className="link" onClick={syncCanvas}>Refresh</button>}
+          </span>
+        )}
+      </div>
       {canvas && !canvas.connected && (
         <p className="muted">Canvas isn't connected. Add your calendar feed link in <a href="#settings">Settings</a>.</p>
       )}
       {canvas?.connected && canvas.error && <div className="banner warn">{canvas.error}</div>}
-      {canvas?.connected && canvas.items.length === 0 && <p className="muted">Nothing due in the next two weeks.</p>}
+      {canvas?.connected && canvas.items.length === 0 && (
+        <p className="muted">{syncing || !canvas.lastSyncUtc ? 'Loading your Canvas assignments…' : 'Nothing due in the next two weeks.'}</p>
+      )}
       <ul className="list">
         {canvas?.items.map((i) => (
           <li key={i.uid} className={i.done ? 'is-done' : ''}>

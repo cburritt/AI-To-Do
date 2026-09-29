@@ -37,11 +37,12 @@ export default function App() {
           </a>
         ))}
       </nav>
+      {/* Pages stay mounted so switching tabs is instant; `active` lets a page refresh when shown. */}
       <main>
-        {page === 'today' && <TodayPage />}
-        {page === 'todos' && <TodosPage />}
-        {page === 'internships' && <InternshipsPage />}
-        {page === 'settings' && <SettingsPage />}
+        <div hidden={page !== 'today'}><TodayPage active={page === 'today'} /></div>
+        <div hidden={page !== 'todos'}><TodosPage active={page === 'todos'} /></div>
+        <div hidden={page !== 'internships'}><InternshipsPage active={page === 'internships'} /></div>
+        <div hidden={page !== 'settings'}><SettingsPage /></div>
       </main>
     </div>
   )

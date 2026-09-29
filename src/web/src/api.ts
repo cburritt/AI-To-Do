@@ -99,6 +99,7 @@ export const api = {
   },
   canvas: {
     items: () => request<CanvasResponse>('/canvas/items'),
+    sync: () => request<CanvasResponse>('/canvas/sync', { method: 'POST' }),
     setDone: (uid: string, done: boolean) =>
       request<CanvasItem>(`/canvas/items/${encodeURIComponent(uid)}/done`, json('PUT', { done })),
   },

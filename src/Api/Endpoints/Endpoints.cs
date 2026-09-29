@@ -117,7 +117,17 @@ public static class Endpoints
     private static void MapCanvas(RouteGroupBuilder g)
     {
         // Syncs the feed, then returns the window of items around today.
-        g.MapGet("/items", async (CanvasFeedService canvas, CancellationToken ct) =>
+        // Fast: returns what's already saved. The page calls /sync separately when the data is stale.
+        g.MapGet("/items", async (CanvasFeedService canvas, CancellationToken ct) => new
+        {
+            connected = await canvas.IsConnectedAsync(),
+            error = (string?)null,
+            lastSyncUtc = await canvas.LastSyncAsync(),
+            items = await canvas.UpcomingAsync(ct),
+        });
+
+        // Slow: downloads the feed from Canvas, then returns the updated items.
+        g.MapPost("/sync", async (CanvasFeedService canvas, CancellationToken ct) =>
         {
             var sync = await canvas.SyncAsync(ct);
             var items = await canvas.UpcomingAsync(ct);

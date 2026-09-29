@@ -6,7 +6,7 @@ const EMPTY: InternshipInput = {
   company: '', role: '', status: 'Wishlist', deadline: null, appliedOn: null, link: null, notes: null,
 }
 
-export default function InternshipsPage() {
+export default function InternshipsPage({ active }: { active: boolean }) {
   const [items, setItems] = useState<Internship[]>([])
   const [statuses, setStatuses] = useState<string[]>([])
   const [filter, setFilter] = useState<string>('Active')
@@ -15,10 +15,8 @@ export default function InternshipsPage() {
   const dialog = useRef<HTMLDialogElement>(null)
 
   const reload = () => api.internships.list().then(setItems).catch((e) => setError(e.message))
-  useEffect(() => {
-    reload()
-    api.internships.statuses().then(setStatuses).catch(() => {})
-  }, [])
+  useEffect(() => { api.internships.statuses().then(setStatuses).catch(() => {}) }, [])
+  useEffect(() => { if (active) reload() }, [active])
 
   useEffect(() => {
     if (editing) dialog.current?.showModal()
