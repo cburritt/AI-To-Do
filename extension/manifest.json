@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "AI-To-Do Canvas Sync",
+  "version": "1.0",
+  "description": "While Canvas is open, tells the AI-To-Do app on this PC which assignments you've turned in.",
+  "host_permissions": ["http://localhost:5080/*"],
+  "permissions": ["storage"],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": ["https://k-state.instructure.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

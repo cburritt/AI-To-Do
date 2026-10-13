@@ -9,6 +9,8 @@ public record TodoInput(string Title, DateOnly? Due, string? Priority, string? N
 public record InternshipInput(string Company, string Role, string? Status, DateOnly? Deadline, DateOnly? AppliedOn, string? Link, string? Notes);
 public record SettingsInput(string? CanvasFeedUrl, string? AnthropicApiKey, string? PlannerMode);
 public record DoneInput(bool Done);
+public record HiddenCoursesInput(string[] Hidden);
+public record SubmissionInput(long AssignmentId, string? WorkflowState, DateTime? SubmittedAt, bool? Excused, bool? Missing);
 
 public static class Endpoints
 {
@@ -143,6 +145,20 @@ public static class Endpoints
             await db.SaveChangesAsync();
             return Results.Ok(item);
         });
+
+        // Classes the user can include or leave out of the Canvas list and the daily plan.
+        g.MapGet("/courses", async (CanvasFeedService canvas, CancellationToken ct) => await canvas.CoursesAsync(ct));
+
+        g.MapPut("/courses", async (HiddenCoursesInput input, SettingsService s, CanvasFeedService canvas, CancellationToken ct) =>
+        {
+            if (input.Hidden is null) return Results.BadRequest("Hidden classes are required.");
+            await s.SetHiddenCoursesAsync(input.Hidden);
+            return Results.Ok(await canvas.CoursesAsync(ct));
+        });
+
+        // Sent by the browser extension while Canvas is open, since the feed has no submission status.
+        g.MapPost("/submissions", async (SubmissionInput[] input, CanvasFeedService canvas, CancellationToken ct) =>
+            new { markedDone = await canvas.ApplySubmissionsAsync(input, ct) });
     }
 
     private static void MapPlan(RouteGroupBuilder g)
@@ -171,10 +187,10 @@ public static class Endpoints
 
     private static void MapSettings(RouteGroupBuilder g)
     {
-        g.MapGet("/", async (SettingsService s) => await Status(s));
+        g.MapGet("/", async (SettingsService s, CanvasFeedService canvas) => await Status(s, canvas));
 
         // A null field leaves that setting unchanged; an empty string clears it.
-        g.MapPut("/", async (SettingsInput input, SettingsService s) =>
+        g.MapPut("/", async (SettingsInput input, SettingsService s, CanvasFeedService canvas) =>
         {
             if (input.CanvasFeedUrl is not null)
             {
@@ -190,13 +206,14 @@ public static class Endpoints
                     return Results.BadRequest("Unknown planner mode.");
                 await s.SetAsync(SettingsService.PlannerMode, input.PlannerMode);
             }
-            return Results.Ok(await Status(s));
+            return Results.Ok(await Status(s, canvas));
         });
 
         g.MapGet("/claude-code", async (ClaudeCodeRunner cc, CancellationToken ct) => await cc.GetAuthStatusAsync(ct));
 
-        static async Task<object> Status(SettingsService s) => new
+        static async Task<object> Status(SettingsService s, CanvasFeedService canvas) => new
         {
+            lastSubmissionSyncUtc = await canvas.LastSubmissionSyncAsync(),
             plannerMode = await s.GetPlannerModeAsync(),
             hasCanvasFeed = await s.GetAsync(SettingsService.CanvasFeedUrl) is not null,
             hasApiKey = await s.GetApiKeyAsync() is not null,

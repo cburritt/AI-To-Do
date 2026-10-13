@@ -108,11 +108,53 @@ public partial class CanvasFeedService(AppDb db, SettingsService settings, HttpC
     {
         var from = DateTime.UtcNow.AddDays(-LookbackDays);
         var to = DateTime.UtcNow.AddDays(LookaheadDays);
+        var hidden = await settings.GetHiddenCoursesAsync();
         return await db.CanvasItems
-            .Where(i => i.DueUtc >= from && i.DueUtc <= to)
+            .Where(i => i.DueUtc >= from && i.DueUtc <= to && !hidden.Contains(i.Course))
             .OrderBy(i => i.DueUtc)
             .ToListAsync(ct);
     }
+
+    public record CourseChoice(string Name, bool Hidden);
+
+    /// <summary>Every class in the saved feed, plus any hidden one the feed no longer lists so it can be turned back on.</summary>
+    public async Task<List<CourseChoice>> CoursesAsync(CancellationToken ct = default)
+    {
+        var hidden = await settings.GetHiddenCoursesAsync();
+        var inFeed = await db.CanvasItems.Select(i => i.Course).Distinct().ToListAsync(ct);
+        return inFeed.Union(hidden)
+            .OrderBy(c => c == "").ThenBy(c => c) // items with no class go last
+            .Select(c => new CourseChoice(c, hidden.Contains(c)))
+            .ToList();
+    }
+
+    /// <summary>
+    /// Checks off items Canvas says are turned in. Only ever checks items, never unchecks,
+    /// so anything the user marked done by hand stays done.
+    /// </summary>
+    public async Task<int> ApplySubmissionsAsync(IEnumerable<Endpoints.SubmissionInput> submissions, CancellationToken ct = default)
+    {
+        // A missing assignment can be auto-graded zero, so "graded" only counts when it isn't flagged missing.
+        var submitted = submissions
+            .Where(s => s.Excused == true || s.SubmittedAt is not null || (s.WorkflowState == "graded" && s.Missing != true))
+            .Select(s => $"event-assignment-{s.AssignmentId}")
+            .ToHashSet();
+
+        var open = await db.CanvasItems.Where(i => !i.Done).ToListAsync(ct);
+        var marked = 0;
+        foreach (var item in open.Where(i => submitted.Contains(i.Uid)))
+        {
+            item.Done = true;
+            marked++;
+        }
+        await db.SaveChangesAsync(ct);
+        await settings.SetAsync(SettingsService.SubmissionsLastSync, DateTime.UtcNow.ToString("O"));
+        return marked;
+    }
+
+    public async Task<DateTime?> LastSubmissionSyncAsync() =>
+        DateTime.TryParse(await settings.GetAsync(SettingsService.SubmissionsLastSync), null,
+            System.Globalization.DateTimeStyles.RoundtripKind, out var d) ? d : null;
 
     public async Task<bool> IsConnectedAsync() => await settings.GetAsync(SettingsService.CanvasFeedUrl) is not null;
 

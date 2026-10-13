@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { api, type ClaudeCodeStatus, type PlannerMode, type SettingsInput, type SettingsStatus } from '../api'
+import { api, type ClaudeCodeStatus, type CourseChoice, type PlannerMode, type SettingsInput, type SettingsStatus } from '../api'
 
 export default function SettingsPage({ active }: { active: boolean }) {
   const [status, setStatus] = useState<SettingsStatus | null>(null)
@@ -8,6 +8,8 @@ export default function SettingsPage({ active }: { active: boolean }) {
   const [feed, setFeed] = useState('')
   const [key, setKey] = useState('')
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
+  const [courses, setCourses] = useState<CourseChoice[]>([])
+  const [courseError, setCourseError] = useState<string | null>(null)
 
   const checkClaudeCode = useCallback(async () => {
     setCheckingCc(true)
@@ -23,8 +25,22 @@ export default function SettingsPage({ active }: { active: boolean }) {
   useEffect(() => {
     if (!active) return
     api.settings.get().then(setStatus).catch(() => {})
+    api.canvas.courses().then(setCourses).catch(() => {})
     checkClaudeCode()
   }, [active, checkClaudeCode])
+
+  // Saves right away, like the planner choice above.
+  async function toggleCourse(name: string, show: boolean) {
+    const next = courses.map((c) => (c.name === name ? { ...c, hidden: !show } : c))
+    setCourses(next)
+    setCourseError(null)
+    try {
+      setCourses(await api.canvas.setHiddenCourses(next.filter((c) => c.hidden).map((c) => c.name)))
+    } catch (err) {
+      setCourses(courses)
+      setCourseError((err as Error).message)
+    }
+  }
 
   async function update(body: SettingsInput) {
     try {
@@ -101,6 +117,14 @@ export default function SettingsPage({ active }: { active: boolean }) {
             placeholder={status?.hasCanvasFeed ? 'Paste a new link to replace it' : 'https://k-state.instructure.com/feeds/calendars/user_….ics'} />
           <small className="muted">In Canvas, open Calendar and click <b>Calendar Feed</b> at the bottom right. Copy that link.</small>
         </label>
+        <div>
+          <div className="label-row"><b>Submitted assignments</b> {pill(!!status?.lastSubmissionSyncUtc, 'Extension working', 'Not set up')}</div>
+          <small className="muted">
+            {status?.lastSubmissionSyncUtc
+              ? `Last checked ${new Date(status.lastSubmissionSyncUtc).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}. Submitted work is checked off whenever you have Canvas open in your browser.`
+              : <>The feed can't tell what you've turned in. Install the browser extension in the repo's <code>extension</code> folder (steps in the README) and submitted work gets checked off whenever you have Canvas open.</>}
+          </small>
+        </div>
         {mode === 'api' && (
           <label>
             <span className="label-row">Claude API key
@@ -117,6 +141,23 @@ export default function SettingsPage({ active }: { active: boolean }) {
         </div>
         <small className="muted">Links and keys are stored encrypted on this PC only and are never sent back to the browser.</small>
       </form>
+
+      <div className="card stack">
+        <h2 className="card-title">Classes</h2>
+        <small className="muted">Unchecked classes are left out of the Canvas list and the daily plan.</small>
+        {courses.length === 0 && (
+          <span className="muted">
+            {status?.hasCanvasFeed ? 'No classes yet. They show up here after Canvas syncs on the Today tab.' : 'Add your Canvas calendar feed above to pick classes.'}
+          </span>
+        )}
+        {courses.map((c) => (
+          <label key={c.name} className="choice">
+            <input type="checkbox" checked={!c.hidden} onChange={(e) => toggleCourse(c.name, e.target.checked)} />
+            <span>{c.name || 'Other (no class)'}</span>
+          </label>
+        ))}
+        {courseError && <span className="bad-text">{courseError}</span>}
+      </div>
     </section>
   )
 }

@@ -41,7 +41,12 @@ export interface CanvasResponse {
   items: CanvasItem[]
 }
 
-export type Source = 'canvas' | 'todo' | 'internship'
+export interface CourseChoice {
+  name: string
+  hidden: boolean
+}
+
+export type Source ='canvas' | 'todo' | 'internship'
 
 export interface Plan {
   headline: string
@@ -62,6 +67,7 @@ export interface SettingsStatus {
   plannerMode: PlannerMode
   hasCanvasFeed: boolean
   hasApiKey: boolean
+  lastSubmissionSyncUtc: string | null
 }
 
 export interface ClaudeCodeStatus {
@@ -117,6 +123,8 @@ export const api = {
     sync: () => request<CanvasResponse>('/canvas/sync', { method: 'POST' }),
     setDone: (uid: string, done: boolean) =>
       request<CanvasItem>(`/canvas/items/${encodeURIComponent(uid)}/done`, json('PUT', { done })),
+    courses: () => request<CourseChoice[]>('/canvas/courses'),
+    setHiddenCourses: (hidden: string[]) => request<CourseChoice[]>('/canvas/courses', json('PUT', { hidden })),
   },
   plan: {
     today: () => request<PlanResponse | undefined>('/plan/today'),
