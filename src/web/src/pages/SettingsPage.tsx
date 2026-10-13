@@ -7,6 +7,8 @@ export default function SettingsPage({ active }: { active: boolean }) {
   const [checkingCc, setCheckingCc] = useState(false)
   const [feed, setFeed] = useState('')
   const [key, setKey] = useState('')
+  const [gmail, setGmail] = useState('')
+  const [gmailPassword, setGmailPassword] = useState('')
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
   const [courses, setCourses] = useState<CourseChoice[]>([])
   const [courseError, setCourseError] = useState<string | null>(null)
@@ -58,10 +60,14 @@ export default function SettingsPage({ active }: { active: boolean }) {
     const body: SettingsInput = {}
     if (feed.trim()) body.canvasFeedUrl = feed.trim()
     if (key.trim()) body.anthropicApiKey = key.trim()
+    if (gmail.trim()) body.gmailAddress = gmail.trim()
+    if (gmailPassword.trim()) body.gmailAppPassword = gmailPassword.trim()
     if (!Object.keys(body).length) return
     if (await update(body)) {
       setFeed('')
       setKey('')
+      setGmail('')
+      setGmailPassword('')
     }
   }
 
@@ -125,6 +131,17 @@ export default function SettingsPage({ active }: { active: boolean }) {
               : <>The feed can't tell what you've turned in. Install the browser extension in the repo's <code>extension</code> folder (steps in the README) and submitted work gets checked off whenever you have Canvas open.</>}
           </small>
         </div>
+        <label>
+          <span className="label-row">Gmail inbox {pill(status?.hasEmail, 'Connected', 'Not set')}
+            {status?.hasEmail && <button type="button" className="link" onClick={() => update({ gmailAddress: '', gmailAppPassword: '' })}>Remove</button>}
+          </span>
+          <input type="email" autoComplete="off" value={gmail} onChange={(e) => setGmail(e.target.value)}
+            placeholder={status?.hasEmail ? 'Type a new address to replace it' : 'name@gmail.com'} />
+          <input type="password" autoComplete="off" value={gmailPassword} onChange={(e) => setGmailPassword(e.target.value)}
+            aria-label="Gmail app password"
+            placeholder={status?.hasEmail ? 'Paste a new app password to replace it' : 'App password (16 letters)'} />
+          <small className="muted">Use an app password from myaccount.google.com/apppasswords, not your normal password. The app only reads unread mail; it never sends, deletes, or marks anything as read.</small>
+        </label>
         {mode === 'api' && (
           <label>
             <span className="label-row">Claude API key

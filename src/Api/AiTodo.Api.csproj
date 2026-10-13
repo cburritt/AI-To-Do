@@ -9,6 +9,7 @@
   <ItemGroup>
     <PackageReference Include="Anthropic" Version="12.51.0" />
     <PackageReference Include="Ical.Net" Version="5.2.3" />
+    <PackageReference Include="MailKit" Version="4.18.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.12" />
   </ItemGroup>
 
@@ -22,8 +23,7 @@
   <Target Name="NpmInstall" BeforeTargets="BuildWeb" Condition="'$(SkipWeb)' != 'true' And !Exists('$(WebDir)/node_modules')">
     <Exec Command="npm install" WorkingDirectory="$(WebDir)" />
   </Target>
-  <Target Name="BuildWeb" BeforeTargets="Build" Condition="'$(SkipWeb)' != 'true'"
-          Inputs="@(WebSource)" Outputs="$(MSBuildProjectDirectory)/wwwroot/index.html">
+  <Target Name="BuildWeb" BeforeTargets="Build" Condition="'$(SkipWeb)' != 'true'" Inputs="@(WebSource)" Outputs="$(MSBuildProjectDirectory)/wwwroot/index.html">
     <Exec Command="npm run build" WorkingDirectory="$(WebDir)" />
   </Target>
 

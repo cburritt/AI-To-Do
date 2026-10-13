@@ -22,6 +22,7 @@ builder.Services.AddHttpClient<CanvasFeedService>(c =>
     // Canvas rejects requests with no User-Agent (403), and .NET doesn't send one by default.
     c.DefaultRequestHeaders.UserAgent.ParseAdd("AI-To-Do/1.0 (personal planner)");
 });
+builder.Services.AddScoped<EmailService>();
 builder.Services.AddScoped<ClaudeCodeRunner>();
 builder.Services.AddScoped<PlannerService>();
 

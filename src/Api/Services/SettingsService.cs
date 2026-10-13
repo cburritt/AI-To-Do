@@ -12,6 +12,8 @@ public class SettingsService(AppDb db, IDataProtectionProvider dp)
 {
     public const string CanvasFeedUrl = "CanvasFeedUrl";
     public const string AnthropicApiKey = "AnthropicApiKey";
+    public const string GmailAddress = "GmailAddress";
+    public const string GmailAppPassword = "GmailAppPassword";
     public const string PlannerMode = "PlannerMode";
     public const string HiddenCourses = "HiddenCourses"; // JSON array of course names left out of the Canvas list and the plan
 

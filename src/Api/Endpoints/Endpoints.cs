@@ -7,7 +7,7 @@ namespace AiTodo.Api.Endpoints;
 
 public record TodoInput(string Title, DateOnly? Due, string? Priority, string? Notes, bool? Done);
 public record InternshipInput(string Company, string Role, string? Status, DateOnly? Deadline, DateOnly? AppliedOn, string? Link, string? Notes);
-public record SettingsInput(string? CanvasFeedUrl, string? AnthropicApiKey, string? PlannerMode);
+public record SettingsInput(string? CanvasFeedUrl, string? AnthropicApiKey, string? PlannerMode, string? GmailAddress, string? GmailAppPassword);
 public record DoneInput(bool Done);
 public record HiddenCoursesInput(string[] Hidden);
 public record SubmissionInput(long AssignmentId, string? WorkflowState, DateTime? SubmittedAt, bool? Excused, bool? Missing);
@@ -22,6 +22,9 @@ public static class Endpoints
         MapInternships(api.MapGroup("/internships"));
         MapCanvas(api.MapGroup("/canvas"));
         MapPlan(api.MapGroup("/plan"));
+        // Unread Gmail from the last week. ?refresh=true skips the couple-of-minutes cache.
+        api.MapGet("/email/inbox", async (bool? refresh, EmailService email, CancellationToken ct) =>
+            await email.UnreadAsync(refresh ?? false, ct));
         MapSettings(api.MapGroup("/settings"));
     }
 
@@ -200,6 +203,14 @@ public static class Endpoints
                 await s.SetAsync(SettingsService.CanvasFeedUrl, url);
             }
             if (input.AnthropicApiKey is not null) await s.SetAsync(SettingsService.AnthropicApiKey, input.AnthropicApiKey);
+            if (input.GmailAddress is not null)
+            {
+                var address = input.GmailAddress.Trim();
+                if (address.Length > 0 && !address.Contains('@'))
+                    return Results.BadRequest("Enter your full Gmail address, like name@gmail.com.");
+                await s.SetAsync(SettingsService.GmailAddress, address);
+            }
+            if (input.GmailAppPassword is not null) await s.SetAsync(SettingsService.GmailAppPassword, input.GmailAppPassword);
             if (input.PlannerMode is not null)
             {
                 if (input.PlannerMode is not (SettingsService.ModeApi or SettingsService.ModeClaudeCode))
@@ -217,6 +228,8 @@ public static class Endpoints
             plannerMode = await s.GetPlannerModeAsync(),
             hasCanvasFeed = await s.GetAsync(SettingsService.CanvasFeedUrl) is not null,
             hasApiKey = await s.GetApiKeyAsync() is not null,
+            hasEmail = await s.GetAsync(SettingsService.GmailAddress) is not null
+                && await s.GetAsync(SettingsService.GmailAppPassword) is not null,
         };
     }
 }

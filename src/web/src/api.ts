@@ -46,6 +46,20 @@ export interface CourseChoice {
   hidden: boolean
 }
 
+export interface InboxItem {
+  from: string
+  subject: string
+  preview: string | null
+  date: string
+  url: string | null
+}
+
+export interface InboxResponse {
+  connected: boolean
+  error: string | null
+  items: InboxItem[]
+}
+
 export type Source ='canvas' | 'todo' | 'internship'
 
 export interface Plan {
@@ -67,6 +81,7 @@ export interface SettingsStatus {
   plannerMode: PlannerMode
   hasCanvasFeed: boolean
   hasApiKey: boolean
+  hasEmail: boolean
   lastSubmissionSyncUtc: string | null
 }
 
@@ -80,6 +95,8 @@ export interface SettingsInput {
   canvasFeedUrl?: string
   anthropicApiKey?: string
   plannerMode?: PlannerMode
+  gmailAddress?: string
+  gmailAppPassword?: string
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -125,6 +142,9 @@ export const api = {
       request<CanvasItem>(`/canvas/items/${encodeURIComponent(uid)}/done`, json('PUT', { done })),
     courses: () => request<CourseChoice[]>('/canvas/courses'),
     setHiddenCourses: (hidden: string[]) => request<CourseChoice[]>('/canvas/courses', json('PUT', { hidden })),
+  },
+  email: {
+    inbox: (refresh = false) => request<InboxResponse>(`/email/inbox${refresh ? '?refresh=true' : ''}`),
   },
   plan: {
     today: () => request<PlanResponse | undefined>('/plan/today'),
